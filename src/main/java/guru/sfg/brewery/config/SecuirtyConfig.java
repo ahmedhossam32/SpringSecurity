@@ -1,5 +1,6 @@
 package guru.sfg.brewery.config;
 
+import guru.sfg.brewery.security.sfgPasswordEncoder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,6 +12,9 @@ import org.springframework.security.config.annotation.web.configurers.Expression
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 
 @Configuration
@@ -33,31 +37,31 @@ public class SecuirtyConfig extends WebSecurityConfigurerAdapter
                 .and().httpBasic();
     }
 
-    @Override
     @Bean
+    @Override
     protected UserDetailsService userDetailsService() {
-        UserDetails user = User.withDefaultPasswordEncoder()
-                .username("Hoss")
-                .password("2003")
-                .roles("USER")
-                .build();
+        // old bcrypt(10) for existing users
+        String oldBcrypt2003 = "{bcrypt}" + new BCryptPasswordEncoder(10).encode("2003");
 
-        UserDetails admin = User.withDefaultPasswordEncoder()
-                .username("admin")
-                .password("2003")
-                .roles("ADMIN")
-                .build();
+        UserDetails hoss  = User.withUsername("Hoss")
+                .password(oldBcrypt2003).roles("USER").build();
 
+        UserDetails admin = User.withUsername("admin")
+                .password(oldBcrypt2003).roles("ADMIN").build();
 
-        return new InMemoryUserDetailsManager(user, admin);
+        // bcrypt15 for scott (uses delegating default id = bcrypt15)
+        String scottHash = passwordEncoder().encode("tiger");
+        UserDetails scott = User.withUsername("scott")
+                .password(scottHash).roles("CUSTOMER").build();
+
+        return new InMemoryUserDetailsManager(hoss, admin, scott);
     }
 
-    @Override
-    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.inMemoryAuthentication()
-                .withUser("scott")
-                .password("{noop}tiger")
-                .roles("CUSTOMER");
 
+
+    @Bean
+    PasswordEncoder passwordEncoder()
+    {
+        return sfgPasswordEncoder.createDelegatingPasswordEncoder();
     }
 }
